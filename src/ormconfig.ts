@@ -6,7 +6,9 @@ const config: ConnectionOptions = {
   port: 5432,
   username: "mediumclone",
   password: "fifa2008",
-  database: "mediumclone"
+  database: "mediumclone",
+  entities: [__dirname + "/**/*.entity{.ts,.js}"],
+  synchronize: true
 }
 
 export default config
