@@ -1,4 +1,5 @@
 import { Controller, Get } from "@nestjs/common"
+import { map, prop } from "ramda"
 
 import { TagService } from "./tag.service"
 
@@ -8,10 +9,8 @@ export class TagController {
 
   @Get()
   async findAll(): Promise<{ tags: string[] }> {
-    const tags = await this.tagService.findAll()
+    const tagsEntity = await this.tagService.findAll()
 
-    return {
-      tags: tags.map((tag) => tag.name)
-    }
+    return { tags: map(prop("name"))(tagsEntity) }
   }
 }
