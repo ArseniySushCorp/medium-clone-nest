@@ -1,3 +1,4 @@
+import { UpdateUserDTO } from "./dto/updateUser.dto"
 import { HttpException, HttpStatus, Injectable } from "@nestjs/common"
 import { InjectRepository } from "@nestjs/typeorm"
 import { Repository } from "typeorm"
@@ -55,6 +56,12 @@ export class UserService {
     delete user.password
 
     return user
+  }
+
+  async updateUser(UpdateUserDTO: UpdateUserDTO, userID: number): Promise<UserEntity> {
+    await this.userRepository.update(userID, UpdateUserDTO)
+
+    return this.findByID(userID)
   }
 
   findByID(id: number): Promise<UserEntity> {
