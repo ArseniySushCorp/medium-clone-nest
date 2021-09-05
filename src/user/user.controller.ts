@@ -1,5 +1,6 @@
+import { AuthGuard } from "./guards/auth.guard"
 import { UserEntity } from "./user.entity"
-import { Body, Controller, Get, Post, Req, UsePipes, ValidationPipe } from "@nestjs/common"
+import { Body, Controller, Get, Post, Req, UseGuards, UsePipes, ValidationPipe } from "@nestjs/common"
 
 import { UserService } from "./user.service"
 import { UserResponseInterface } from "./types/UserResponse.interface"
@@ -14,6 +15,7 @@ export class UserController {
   constructor(private readonly userService: UserService) {}
 
   @Get("user")
+  @UseGuards(AuthGuard)
   async currentUser(@Req() request: ExpressRequestInterface, @User() user: UserEntity): Promise<UserResponseInterface> {
     return this.userService.buildUserResponse(request.user)
   }
