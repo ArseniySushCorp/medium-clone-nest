@@ -1,10 +1,11 @@
 import { ArticleResponseInterface } from "./types/articleResponse.interface"
 import { CreateArticleDTO } from "./dto/createArticle.dto"
 import { UserEntity } from "@app/user/user.entity"
-import { Body, Controller, Post, UseGuards } from "@nestjs/common"
+import { Body, Controller, Get, Param, Post, UseGuards } from "@nestjs/common"
 import { ArticleService } from "./article.service"
 import { AuthGuard } from "./../user/guards/auth.guard"
 import { User } from "@app/user/decorators/user.decorator"
+import { ArticleEntity } from "./article.entity"
 
 @Controller("articles")
 export class ArticleController {
@@ -17,6 +18,15 @@ export class ArticleController {
     @Body("article") createArticleDTO: CreateArticleDTO
   ): Promise<ArticleResponseInterface> {
     const article = await this.articleService.createArticle(currentUser, createArticleDTO)
+
+    return this.articleService.buildArticleResponse(article)
+  }
+
+  @Get(":slug")
+  async getSingleArticle(
+    @Param("slug") slug: ArticleEntity["slug"]
+  ): Promise<ArticleResponseInterface> {
+    const article = await this.articleService.findOneBySlug(slug)
 
     return this.articleService.buildArticleResponse(article)
   }
