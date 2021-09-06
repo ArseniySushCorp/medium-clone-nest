@@ -9,6 +9,7 @@ import {
   Param,
   Post,
   Put,
+  Query,
   UseGuards,
   UsePipes,
   ValidationPipe
@@ -18,10 +19,19 @@ import { AuthGuard } from "./../user/guards/auth.guard"
 import { User } from "@app/user/decorators/user.decorator"
 import { ArticleEntity } from "./article.entity"
 import { UpdateArticleDTO } from "./dto/updateArticle.dto"
+import { ArticlesResponseInterface } from "./types/articlesResponse.interface"
 
 @Controller("articles")
 export class ArticleController {
   constructor(private readonly articleService: ArticleService) {}
+
+  @Get()
+  async findAll(
+    @User("id") currentUserID: number,
+    @Query() query: any
+  ): Promise<ArticlesResponseInterface> {
+    return await this.articleService.findAll(currentUserID, query)
+  }
 
   @Post()
   @UseGuards(AuthGuard)

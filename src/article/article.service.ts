@@ -1,19 +1,49 @@
 import { UpdateArticleDTO } from "./dto/updateArticle.dto"
 import { ArticleResponseInterface } from "./types/articleResponse.interface"
-import { DeleteResult, Repository } from "typeorm"
+import { DeleteResult, getRepository, Repository } from "typeorm"
 import { ArticleEntity } from "./article.entity"
 import { CreateArticleDTO } from "./dto/createArticle.dto"
 import { UserEntity } from "@app/user/user.entity"
 import { HttpException, HttpStatus, Injectable } from "@nestjs/common"
 import { InjectRepository } from "@nestjs/typeorm"
 import sligufy from "slugify"
+import { ArticlesResponseInterface } from "./types/articlesResponse.interface"
 
 @Injectable()
 export class ArticleService {
   constructor(
     @InjectRepository(ArticleEntity)
-    private readonly articleRepository: Repository<ArticleEntity>
+    private readonly articleRepository: Repository<ArticleEntity>,
+    @InjectRepository(UserEntity)
+    private readonly userRepository: Repository<UserEntity>
   ) {}
+
+  async findAll(currentUserID: number, query: any): Promise<ArticlesResponseInterface> {
+    const queryBuilder = getRepository(ArticleEntity)
+      .createQueryBuilder("articles")
+      .leftJoinAndSelect("articles.author", "author")
+      .orderBy("articles.createdAt", "DESC")
+      .limit(query.limit || 20)
+
+    const articlesCount = await queryBuilder.getCount()
+
+    if (query.tag) {
+      queryBuilder.andWhere("articles.tagList LIKE :tag", { tag: `%${query.tag}%` })
+    }
+
+    if (query.author) {
+      const author = await this.userRepository.findOne({ username: query.author })
+      queryBuilder.andWhere("articles.authorId = :id", { id: author.id })
+    }
+
+    if (query.offset) {
+      queryBuilder.offset(query.offset)
+    }
+
+    const articles = await queryBuilder.getMany()
+
+    return { articles, articlesCount }
+  }
 
   async createArticle(
     currentUser: UserEntity,
