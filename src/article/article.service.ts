@@ -1,3 +1,4 @@
+import { UpdateArticleDTO } from "./dto/updateArticle.dto"
 import { ArticleResponseInterface } from "./types/articleResponse.interface"
 import { DeleteResult, Repository } from "typeorm"
 import { ArticleEntity } from "./article.entity"
@@ -51,6 +52,31 @@ export class ArticleService {
     }
 
     return await this.articleRepository.delete({ slug })
+  }
+
+  async updateArticle(
+    updateArticleDTO: UpdateArticleDTO,
+    slug: ArticleEntity["slug"],
+    currentUserID: UserEntity["id"]
+  ): Promise<ArticleEntity> {
+    const article = await this.findOneBySlug(slug)
+
+    if (!article) {
+      throw new HttpException("Article does not exist", HttpStatus.NOT_FOUND)
+    }
+
+    if (article.author.id !== currentUserID) {
+      throw new HttpException("You are not an author", HttpStatus.FORBIDDEN)
+    }
+
+    const newSlug =
+      updateArticleDTO.title !== article.title
+        ? this.getSlug(updateArticleDTO.title)
+        : article.title
+
+    Object.assign(article, updateArticleDTO)
+
+    return await this.articleRepository.save({ ...article, slug: newSlug })
   }
 
   buildArticleResponse(article: ArticleEntity): ArticleResponseInterface {
