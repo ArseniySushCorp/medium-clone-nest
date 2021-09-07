@@ -79,4 +79,15 @@ export class ArticleController {
 
     return this.articleService.buildArticleResponse(article)
   }
+
+  @Post(":slug/favorite")
+  @UseGuards(AuthGuard)
+  async addArticleToFavorites(
+    @User("id") currentUserID: number,
+    @Param("slug") slug: string
+  ): Promise<ArticleResponseInterface> {
+    const article = await this.articleService.addArticleToFavorites(slug, currentUserID)
+
+    return this.articleService.buildArticleResponse(article)
+  }
 }

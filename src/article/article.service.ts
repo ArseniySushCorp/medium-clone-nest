@@ -8,6 +8,8 @@ import { HttpException, HttpStatus, Injectable } from "@nestjs/common"
 import { InjectRepository } from "@nestjs/typeorm"
 import sligufy from "slugify"
 import { ArticlesResponseInterface } from "./types/articlesResponse.interface"
+import { User } from "@app/user/decorators/user.decorator"
+import { find, propEq } from "ramda"
 
 @Injectable()
 export class ArticleService {
@@ -107,6 +109,28 @@ export class ArticleService {
     Object.assign(article, updateArticleDTO)
 
     return await this.articleRepository.save({ ...article, slug: newSlug })
+  }
+
+  async addArticleToFavorites(
+    slug: string,
+    currentUserID: number
+  ): Promise<ArticleEntity> {
+    const article = await this.findOneBySlug(slug)
+    const user = await this.userRepository.findOne(currentUserID, {
+      relations: ["favorites"]
+    })
+
+    const isNotFavorited = !find(propEq("id", article.id))(user.favorites)
+
+    if (isNotFavorited) {
+      user.favorites.push(article)
+      article.favoritesCount++
+
+      await this.userRepository.save(user)
+      await this.articleRepository.save(article)
+    }
+
+    return article
   }
 
   buildArticleResponse(article: ArticleEntity): ArticleResponseInterface {
