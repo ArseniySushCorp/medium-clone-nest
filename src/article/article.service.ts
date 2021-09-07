@@ -9,7 +9,7 @@ import { InjectRepository } from "@nestjs/typeorm"
 import sligufy from "slugify"
 import { ArticlesResponseInterface } from "./types/articlesResponse.interface"
 import { User } from "@app/user/decorators/user.decorator"
-import { find, propEq } from "ramda"
+import { find, findIndex, propEq } from "ramda"
 
 @Injectable()
 export class ArticleService {
@@ -25,9 +25,26 @@ export class ArticleService {
       .createQueryBuilder("articles")
       .leftJoinAndSelect("articles.author", "author")
       .orderBy("articles.createdAt", "DESC")
-      .limit(query.limit || 20)
+    // .limit(query.limit || 20)
 
     const articlesCount = await queryBuilder.getCount()
+
+    if (query.favorited) {
+      const author = await this.userRepository.findOne(
+        {
+          username: query.favorited
+        },
+        { relations: ["favorites"] }
+      )
+
+      const ids = author.favorites.map((el) => el.id)
+
+      if (ids.length >= 0) {
+        queryBuilder.andWhere("articles.id IN (:...ids)", { ids })
+      } else {
+        queryBuilder.andWhere("1=0")
+      }
+    }
 
     if (query.tag) {
       queryBuilder.andWhere("articles.tagList LIKE :tag", { tag: `%${query.tag}%` })
@@ -42,9 +59,24 @@ export class ArticleService {
       queryBuilder.offset(query.offset)
     }
 
-    const articles = await queryBuilder.getMany()
+    let favoriteIds: number[] = []
 
-    return { articles, articlesCount }
+    if (currentUserID) {
+      const currentUser = await this.userRepository.findOne(currentUserID, {
+        relations: ["favorites"]
+      })
+
+      favoriteIds = currentUser.favorites.map((favorite) => favorite.id)
+    }
+
+    const articles = await queryBuilder.getMany()
+    const articlesWithFavorites = articles.map((article) => {
+      const favorited = favoriteIds.includes(article.id)
+
+      return { ...article, favorited }
+    })
+
+    return { articles: articlesWithFavorites, articlesCount }
   }
 
   async createArticle(
@@ -125,6 +157,28 @@ export class ArticleService {
     if (isNotFavorited) {
       user.favorites.push(article)
       article.favoritesCount++
+
+      await this.userRepository.save(user)
+      await this.articleRepository.save(article)
+    }
+
+    return article
+  }
+
+  async deleteArticleFromFavorites(
+    slug: string,
+    currentUserID: number
+  ): Promise<ArticleEntity> {
+    const article = await this.findOneBySlug(slug)
+    const user = await this.userRepository.findOne(currentUserID, {
+      relations: ["favorites"]
+    })
+
+    const articleIndex = findIndex(propEq("id", article.id))(user.favorites)
+
+    if (articleIndex >= 0) {
+      user.favorites.splice(articleIndex, 1)
+      article.favoritesCount--
 
       await this.userRepository.save(user)
       await this.articleRepository.save(article)
