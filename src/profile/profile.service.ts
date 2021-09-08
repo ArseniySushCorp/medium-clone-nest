@@ -13,6 +13,7 @@ import { pick } from "ramda"
 export class ProfileService {
   constructor(
     @InjectRepository(UserEntity) private readonly userRepo: Repository<UserEntity>,
+
     @InjectRepository(FollowEntity) private readonly followRepo: Repository<FollowEntity>
   ) {}
 

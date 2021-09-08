@@ -1,3 +1,4 @@
+import { ArticleQueryType } from "./types/query.type"
 import { ArticleResponseInterface } from "./types/articleResponse.interface"
 import { CreateArticleDTO } from "./dto/createArticle.dto"
 import { UserEntity } from "@app/user/user.entity"
@@ -28,9 +29,18 @@ export class ArticleController {
   @Get()
   async findAll(
     @User("id") currentUserID: number,
-    @Query() query: any
+    @Query() query: ArticleQueryType
   ): Promise<ArticlesResponseInterface> {
     return await this.articleService.findAll(currentUserID, query)
+  }
+
+  @Get("/feed")
+  @UseGuards(AuthGuard)
+  async getFeed(
+    @User("id") currentUserID: number,
+    @Query() query: ArticleQueryType
+  ): Promise<ArticlesResponseInterface> {
+    return await this.articleService.getFeed(currentUserID, query)
   }
 
   @Post()
@@ -71,11 +81,7 @@ export class ArticleController {
     @Param("slug") slug: ArticleEntity["slug"],
     @Body("article") updateArticleDTO: UpdateArticleDTO
   ): Promise<ArticleResponseInterface> {
-    const article = await this.articleService.updateArticle(
-      updateArticleDTO,
-      slug,
-      currentUserID
-    )
+    const article = await this.articleService.updateArticle(updateArticleDTO, slug, currentUserID)
 
     return this.articleService.buildArticleResponse(article)
   }
@@ -97,10 +103,7 @@ export class ArticleController {
     @User("id") currentUserID: number,
     @Param("slug") slug: string
   ): Promise<ArticleResponseInterface> {
-    const article = await this.articleService.deleteArticleFromFavorites(
-      slug,
-      currentUserID
-    )
+    const article = await this.articleService.deleteArticleFromFavorites(slug, currentUserID)
 
     return this.articleService.buildArticleResponse(article)
   }

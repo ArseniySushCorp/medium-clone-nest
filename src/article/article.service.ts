@@ -1,3 +1,5 @@
+import { FollowEntity } from "./../profile/follow.entity"
+import { ArticleQueryType } from "./types/query.type"
 import { UpdateArticleDTO } from "./dto/updateArticle.dto"
 import { ArticleResponseInterface } from "./types/articleResponse.interface"
 import { DeleteResult, getRepository, Repository } from "typeorm"
@@ -8,19 +10,25 @@ import { HttpException, HttpStatus, Injectable } from "@nestjs/common"
 import { InjectRepository } from "@nestjs/typeorm"
 import sligufy from "slugify"
 import { ArticlesResponseInterface } from "./types/articlesResponse.interface"
-import { User } from "@app/user/decorators/user.decorator"
-import { find, findIndex, propEq } from "ramda"
+import { find, findIndex, isEmpty, propEq } from "ramda"
 
 @Injectable()
 export class ArticleService {
   constructor(
     @InjectRepository(ArticleEntity)
     private readonly articleRepository: Repository<ArticleEntity>,
+
     @InjectRepository(UserEntity)
-    private readonly userRepository: Repository<UserEntity>
+    private readonly userRepository: Repository<UserEntity>,
+
+    @InjectRepository(FollowEntity)
+    private readonly followRepository: Repository<FollowEntity>
   ) {}
 
-  async findAll(currentUserID: number, query: any): Promise<ArticlesResponseInterface> {
+  async findAll(
+    currentUserID: number,
+    query: ArticleQueryType
+  ): Promise<ArticlesResponseInterface> {
     const queryBuilder = getRepository(ArticleEntity)
       .createQueryBuilder("articles")
       .leftJoinAndSelect("articles.author", "author")
@@ -77,6 +85,39 @@ export class ArticleService {
     })
 
     return { articles: articlesWithFavorites, articlesCount }
+  }
+
+  async getFeed(
+    currentUserID: number,
+    query: ArticleQueryType
+  ): Promise<ArticlesResponseInterface> {
+    const follows = await this.followRepository.find({ followerId: currentUserID })
+
+    if (isEmpty(follows)) {
+      return { articles: [], articlesCount: 0 }
+    }
+
+    const followingIds = follows.map((follow) => follow.followingId)
+
+    const queryBuilder = getRepository(ArticleEntity)
+      .createQueryBuilder("articles")
+      .leftJoinAndSelect("articles.author", "author")
+      .where("articles.author.id IN (:...ids)", { ids: followingIds })
+      .orderBy("articles.createdAt", "DESC")
+
+    const articlesCount = await queryBuilder.getCount()
+
+    if (query.limit) {
+      queryBuilder.limit(query.limit)
+    }
+
+    if (query.offset) {
+      queryBuilder.offset(query.offset)
+    }
+
+    const articles = await queryBuilder.getMany()
+
+    return { articles, articlesCount }
   }
 
   async createArticle(
@@ -143,11 +184,11 @@ export class ArticleService {
     return await this.articleRepository.save({ ...article, slug: newSlug })
   }
 
-  async addArticleToFavorites(
-    slug: string,
-    currentUserID: number
-  ): Promise<ArticleEntity> {
+  async addArticleToFavorites(slug: string, currentUserID: number): Promise<ArticleEntity> {
     const article = await this.findOneBySlug(slug)
+
+    if (!article) throw new HttpException("Article not found", HttpStatus.NOT_FOUND)
+
     const user = await this.userRepository.findOne(currentUserID, {
       relations: ["favorites"]
     })
@@ -165,11 +206,11 @@ export class ArticleService {
     return article
   }
 
-  async deleteArticleFromFavorites(
-    slug: string,
-    currentUserID: number
-  ): Promise<ArticleEntity> {
+  async deleteArticleFromFavorites(slug: string, currentUserID: number): Promise<ArticleEntity> {
     const article = await this.findOneBySlug(slug)
+
+    if (!article) throw new HttpException("Article not found", HttpStatus.NOT_FOUND)
+
     const user = await this.userRepository.findOne(currentUserID, {
       relations: ["favorites"]
     })
@@ -192,8 +233,6 @@ export class ArticleService {
   }
 
   private getSlug(title: string): string {
-    return (
-      sligufy(title, { lower: true }) + "-" + ((Math.random() * 36 ** 6) | 0).toString(36)
-    )
+    return sligufy(title, { lower: true }) + "-" + ((Math.random() * 36 ** 6) | 0).toString(36)
   }
 }
