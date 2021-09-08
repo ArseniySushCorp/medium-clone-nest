@@ -16,12 +16,15 @@ export class ProfileService {
     @InjectRepository(FollowEntity) private readonly followRepo: Repository<FollowEntity>
   ) {}
 
-  async findProfile(username: string): Promise<ProfileType> {
-    const user = await this.userRepo.findOne({ username })
+  async getProfile(username: string, currentUserID: number): Promise<ProfileType> {
+    const user = await this.findProfile(username)
 
-    if (!user) throw new HttpException("Profile does not exist", HttpStatus.NOT_FOUND)
+    const follow = await this.followRepo.findOne({
+      followerId: currentUserID,
+      followingId: user.id
+    })
 
-    return { ...user, following: false }
+    return { ...user, following: !!follow }
   }
 
   async followProfile(username: string, currentUserId: number): Promise<ProfileType> {
@@ -44,13 +47,34 @@ export class ProfileService {
       this.followRepo.save(followToCreate)
     }
 
-    profile.following = true
+    return { ...profile, following: true }
+  }
 
-    return profile
+  async unfollowProfile(username: string, currentUserId: number): Promise<ProfileType> {
+    const profile = await this.findProfile(username)
+
+    if (currentUserId === profile.id) {
+      throw new HttpException("Follower and following cont be equal", HttpStatus.BAD_REQUEST)
+    }
+
+    await this.followRepo.delete({
+      followerId: currentUserId,
+      followingId: profile.id
+    })
+
+    return { ...profile, following: false }
   }
 
   buildResponse(profile: ProfileType): ProfileResponse {
     const responseProfile = pick(["id", "username", "bio", "image", "following"], profile)
     return { profile: responseProfile }
+  }
+
+  private async findProfile(username: string): Promise<UserEntity> {
+    const user = await this.userRepo.findOne({ username })
+
+    if (!user) throw new HttpException("Profile does not exist", HttpStatus.NOT_FOUND)
+
+    return user
   }
 }
