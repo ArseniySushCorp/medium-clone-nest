@@ -2,14 +2,16 @@ import { UserEntity } from "@app/user/user.entity"
 import { CreateCommentDTO } from "./dto/createComment.dto"
 import { BackendValidationErrors } from "./../types/BackendValidationErrors.type"
 import { ArticleEntity } from "./../article/article.entity"
-import { Repository } from "typeorm"
+import { getRepository, Repository } from "typeorm"
 import { CommentEntity } from "@app/comment/comment.entity"
 import { HttpException, HttpStatus, Injectable } from "@nestjs/common"
 import { InjectRepository } from "@nestjs/typeorm"
+import { DeleteParams } from "./types"
 
 @Injectable()
 export class CommentService {
   articleError: BackendValidationErrors
+  commentError: BackendValidationErrors
   constructor(
     @InjectRepository(CommentEntity)
     private readonly commentRepo: Repository<CommentEntity>,
@@ -21,6 +23,7 @@ export class CommentService {
     private readonly userRepo: Repository<UserEntity>
   ) {
     this.articleError = { article: ["Does not exit"] }
+    this.commentError = { comment: ["Not found or not owned by user"] }
   }
 
   async createComment(
@@ -45,6 +48,18 @@ export class CommentService {
     const article = await this.findArticle(slug)
 
     return article.comments
+  }
+
+  async deleteComment({ slug, id }: DeleteParams, currentUserID: number) {
+    const comment = await this.commentRepo.findOne(id, { relations: ["article"] })
+
+    if (comment && comment.article.slug === slug && comment.author.id === currentUserID) {
+      await this.commentRepo.delete(comment.id)
+    } else {
+      throw new HttpException({ error: this.commentError }, HttpStatus.UNPROCESSABLE_ENTITY)
+    }
+
+    return comment
   }
 
   buildSingleResponse(comment: CommentEntity): any {
