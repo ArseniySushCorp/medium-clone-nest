@@ -11,10 +11,22 @@ import { LoginUserDTO } from "./dto/loginUser.dto"
 
 import { sign } from "jsonwebtoken"
 import { compare } from "bcrypt"
+import { BackendValidationErrors } from "@app/types/BackendValidationErrors.type"
 
 @Injectable()
 export class UserService {
-  constructor(@InjectRepository(UserEntity) private readonly userRepository: Repository<UserEntity>) {}
+  createUserErrors: BackendValidationErrors
+  loginError: { errors: BackendValidationErrors }
+  constructor(
+    @InjectRepository(UserEntity) private readonly userRepository: Repository<UserEntity>
+  ) {
+    this.createUserErrors = {}
+    this.loginError = {
+      errors: {
+        "email or password": ["is invalid"]
+      }
+    }
+  }
 
   async createUser(createUserDTO: CreateUserDTO): Promise<UserEntity> {
     const userByEmail = await this.userRepository.findOne({
@@ -25,8 +37,16 @@ export class UserService {
       username: createUserDTO.username
     })
 
+    if (userByEmail) {
+      this.createUserErrors["email"] = ["has alread been taken"]
+    }
+
+    if (userByUsername) {
+      this.createUserErrors["username"] = ["has alread been taken"]
+    }
+
     if (userByEmail || userByUsername) {
-      throw new HttpException("Email or username are taken", HttpStatus.UNPROCESSABLE_ENTITY)
+      throw new HttpException({ errors: this.createUserErrors }, HttpStatus.UNPROCESSABLE_ENTITY)
     }
 
     const newUser = new UserEntity()
@@ -44,13 +64,13 @@ export class UserService {
     )
 
     if (!user) {
-      throw new HttpException("Credentials are not valid", HttpStatus.UNPROCESSABLE_ENTITY)
+      throw new HttpException(this.loginError, HttpStatus.UNPROCESSABLE_ENTITY)
     }
 
     const isPasswordCorrect = await compare(LoginUserDTO.password, user.password)
 
     if (!isPasswordCorrect) {
-      throw new HttpException("Credentials are not valid", HttpStatus.UNPROCESSABLE_ENTITY)
+      throw new HttpException(this.loginError, HttpStatus.UNPROCESSABLE_ENTITY)
     }
 
     delete user.password
