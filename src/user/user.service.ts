@@ -16,12 +16,12 @@ import { BackendValidationErrors } from "@app/types/BackendValidationErrors.type
 @Injectable()
 export class UserService {
   createUserErrors: BackendValidationErrors
-  loginError: { errors: BackendValidationErrors }
+  loginErrorResponse: { errors: BackendValidationErrors }
   constructor(
     @InjectRepository(UserEntity) private readonly userRepository: Repository<UserEntity>
   ) {
     this.createUserErrors = {}
-    this.loginError = {
+    this.loginErrorResponse = {
       errors: {
         "email or password": ["is invalid"]
       }
@@ -64,13 +64,13 @@ export class UserService {
     )
 
     if (!user) {
-      throw new HttpException(this.loginError, HttpStatus.UNPROCESSABLE_ENTITY)
+      throw new HttpException(this.loginErrorResponse, HttpStatus.UNPROCESSABLE_ENTITY)
     }
 
     const isPasswordCorrect = await compare(LoginUserDTO.password, user.password)
 
     if (!isPasswordCorrect) {
-      throw new HttpException(this.loginError, HttpStatus.UNPROCESSABLE_ENTITY)
+      throw new HttpException(this.loginErrorResponse, HttpStatus.UNPROCESSABLE_ENTITY)
     }
 
     delete user.password
