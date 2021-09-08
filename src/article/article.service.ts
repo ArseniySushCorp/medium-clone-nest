@@ -25,7 +25,7 @@ export class ArticleService {
       .createQueryBuilder("articles")
       .leftJoinAndSelect("articles.author", "author")
       .orderBy("articles.createdAt", "DESC")
-    // .limit(query.limit || 20)
+      .limit(query.limit || 20)
 
     const articlesCount = await queryBuilder.getCount()
 
